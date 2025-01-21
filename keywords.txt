@@ -1,0 +1,6 @@
+ofxSerialManager	KEYWORD1
+SerialCallback	KEYWORD2
+addListener		KEYWORD2
+setup			KEYWORD2
+update			KEYWORD2
+send			KEYWORD2
