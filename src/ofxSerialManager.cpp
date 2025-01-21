@@ -41,7 +41,7 @@ void ofxSerialManager::setup(Stream* s) {
 // --------------------------------------
 // openFrameworks版: シリアルポートを開く例
 // --------------------------------------
-bool ofxSerialManager::setupOF(const std::string &portName, int baud) {
+bool ofxSerialManager::setupOF(const std::string& portName, int baud) {
   // ofSerialの open や setup のやり方は環境で異なる
   // ここではざっくり例
   bool ret = serial.setup(portName, baud);
@@ -56,9 +56,9 @@ bool ofxSerialManager::setupOF(const std::string &portName, int baud) {
 void ofxSerialManager::update() {
   // 受信できるだけ読み取る
   while (true) {
-    int b = readByte(); // -1ならデータなし
+    int b = readByte();  // -1ならデータなし
     if (b < 0) {
-      break; // もう無い
+      break;  // もう無い
     }
 
     unsigned char c = (unsigned char)b;
@@ -72,21 +72,18 @@ void ofxSerialManager::update() {
         rxBuffer[rxLen] = '\0';
       }
       escapeNext = false;
-    }
-    else {
+    } else {
       if (c == '\\') {
         // 次の文字をエスケープ扱いにする
         escapeNext = true;
-      }
-      else if (c == '\n') {
+      } else if (c == '\n') {
         // 改行が来たので1行(1コマンド)確定
         if (rxLen > 0) {
           rxBuffer[rxLen] = '\0';
           execCmd(rxBuffer);
         }
         resetBuffer();
-      }
-      else {
+      } else {
         // コマンド部分は非表示文字を無視してOK
         // ただしペイロード中はバイナリでも入れたい可能性あるが、
         // 簡単のため、まずはコマンド部分だけASCIIチェックしよう
@@ -111,8 +108,7 @@ int ofxSerialManager::readByte() {
   if (!serial) return -1;
   if (serial->available() > 0) {
     return serial->read();
-  }
-  else {
+  } else {
     return -1;
   }
 #else
@@ -120,12 +116,12 @@ int ofxSerialManager::readByte() {
   if (serial.isInitialized()) {
     int b = serial.readByte();
     if (b == OF_SERIAL_NO_DATA) {
-      return -1; // データ無し
+      return -1;  // データ無し
     }
     if (b == OF_SERIAL_ERROR) {
-      return -1; // エラー扱い
+      return -1;  // エラー扱い
     }
-    return b & 0xFF; // 正常読み取り
+    return b & 0xFF;  // 正常読み取り
   }
   return -1;
 #endif
@@ -154,7 +150,7 @@ void ofxSerialManager::execCmd(const char* cmdline) {
   // コマンド部はASCII可視文字以外を無視するとしたければトリミング
   char temp[BUFFER_SIZE];
   strncpy(temp, cmdline, sizeof(temp));
-  temp[sizeof(temp)-1] = '\0';
+  temp[sizeof(temp) - 1] = '\0';
 
   // ':' を探す
   char* sep = strchr(temp, ':');
@@ -164,7 +160,7 @@ void ofxSerialManager::execCmd(const char* cmdline) {
     // ここでは雑にやる
     for (char* p = temp; *p; p++) {
       if (!isprint((unsigned char)*p)) {
-        *p = '\0'; // そこで終端しちゃう
+        *p = '\0';  // そこで終端しちゃう
         break;
       }
     }
@@ -195,19 +191,23 @@ void ofxSerialManager::execCmd(const char* cmdline) {
     cmdPart[writePos] = '\0';
   }
 
-  // payloadPartをエスケープ解除
-  // （今回は実行時にまとめてやる。実際にはupdate中にやってもOK）
-  unescapePayload(payloadPart);
+  int payloadLen = strlen(payloadPart);  // 受信行の残り分(エスケープ前)
+  // (本当は、最初に readByte() で読んだトータル長を渡した方が正確)
 
-  // コールバック呼び出し
+  // unescapePayload() が返してきた最終バイナリ長を保持
+  int actualLen = unescapePayload(payloadPart, payloadLen);
+
+  // コールバックを呼ぶ
   for (int i = 0; i < listenerCount; i++) {
     if (strcmp(listeners[i].cmd, cmdPart) == 0) {
-      listeners[i].callback(payloadPart, strlen(payloadPart));
+      // payloadPart に実際のバイナリが書き込まれている
+      // actualLen がその長さ
+      listeners[i].callback(payloadPart, actualLen);
       return;
     }
   }
 
-  // 見つからなければエラー的に
+  // 見つからなければエラー返す？
   // send("error", cmdPart)など
 }
 
@@ -248,7 +248,7 @@ void ofxSerialManager::send(const char* cmd, const unsigned char* data, int leng
 void ofxSerialManager::send(const char* cmd, const char* str) {
   if (!str) {
     // nullなら長さ0として扱う
-    unsigned char dummy[1] = {0};
+    unsigned char dummy[1] = { 0 };
     send(cmd, dummy, 0);
     return;
   }
@@ -276,19 +276,23 @@ void ofxSerialManager::writeEscaped(const unsigned char* data, int length) {
 
 // --------------------------------------
 // payload受信時のエスケープ解除
-// 「\x」 があれば x をそのままバイナリとして取り出す。
+// 「\?」 があれば ? をそのままバイナリとして取り出す。
 // ただし '\n' は本物の改行に戻す。
+// "\x01" のようなものはバイトコードとみなして 0x01 などにする
 // --------------------------------------
-void ofxSerialManager::unescapePayload(char* payload) {
-  int len = strlen(payload);
+int ofxSerialManager::unescapePayload(char* payload, int inLen) {
+  // inLen は "payloadPart" の文字数（改行除いた長さ）を渡す
+  // (改行で区切った時点での長さとか)
+  // 出力バッファは payload自身を使いまわす
+  // 返すのは「エスケープ展開後の実際のバイナリの長さ」
   int writePos = 0;
   bool esc = false;
-  for (int i = 0; i < len; i++) {
+
+  for (int i = 0; i < inLen; i++) {
     unsigned char c = (unsigned char)payload[i];
     if (!esc) {
       if (c == '\\') {
-        // 次の文字をエスケープ扱い
-        esc = true;
+        esc = true;  // 次の1文字をエスケープ対象に
       } else {
         payload[writePos++] = c;
       }
@@ -296,12 +300,25 @@ void ofxSerialManager::unescapePayload(char* payload) {
       // エスケープ中
       if (c == 'n') {
         payload[writePos++] = '\n';
+      } else if (c == 'x') {
+        // \x で始まる → 次の2文字をHEXとみなしてバイト化
+        if (i + 2 < inLen) {
+          char hex[3];
+          hex[0] = payload[i + 1];
+          hex[1] = payload[i + 2];
+          hex[2] = '\0';
+          unsigned char val = (unsigned char)strtol(hex, NULL, 16);
+          payload[writePos++] = val;
+          i += 2;  // 2文字ぶん消費
+        }
       } else {
-        // それ以外ならそのまま
+        // それ以外はそのまま
         payload[writePos++] = c;
       }
       esc = false;
     }
   }
-  payload[writePos] = '\0';
+
+  // ここではヌル終端は付けずに「長さ」で管理する想定
+  return writePos;  // 実際のサイズ
 }
