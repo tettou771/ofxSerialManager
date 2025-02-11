@@ -168,7 +168,6 @@ void ofxSerialManager::execCmd(const char* cmdline) {
     for (int i = 0; i < listenerCount; i++) {
       if (strcmp(listeners[i].cmd, temp) == 0) {
         listeners[i].callback("", 0);
-        return;
       }
     }
     // 見つからなければエラー的に
@@ -203,7 +202,6 @@ void ofxSerialManager::execCmd(const char* cmdline) {
       // payloadPart に実際のバイナリが書き込まれている
       // actualLen がその長さ
       listeners[i].callback(payloadPart, actualLen);
-      return;
     }
   }
 
@@ -253,6 +251,15 @@ void ofxSerialManager::send(const char* cmd, const char* str) {
     return;
   }
   send(cmd, (const unsigned char*)str, strlen(str));
+}
+
+// 初期化されているかどうか
+bool ofxSerialManager::isInitialized() {
+#ifdef ARDUINO
+  return serial;
+#else
+  return serial.isInitialized();
+#endif
 }
 
 // --------------------------------------

@@ -26,7 +26,7 @@ public:
 
   // リスナー登録
   bool addListener(const char* cmd, SerialCallback callback);
-
+  
   // Arduino版とOF版で口を変える
 #ifdef ARDUINO
   // Arduinoの場合は setup( Stream* ) でシリアルを受けとる
@@ -44,6 +44,8 @@ public:
   void send(const char* cmd, const unsigned char* data, int length);
   // 文字列だけ送りたい場合のシンプルオーバーロード
   void send(const char* cmd, const char* str);
+    
+  bool isInitialized();
 
 private:
   // リスナーを保持する構造体
