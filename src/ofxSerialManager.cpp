@@ -138,6 +138,8 @@ void ofxSerialManager::writeByte(unsigned char c) {
 #ifdef ARDUINO
   if (serial) {
     serial->write(c);
+    serial->flush();  // 送信完了を待つ
+    delayMicroseconds(100);
   }
 #else
   if (serial.isInitialized()) {
@@ -256,6 +258,8 @@ void ofxSerialManager::send(const char* cmd, const unsigned char* data, int leng
     
 #ifdef ARDUINO
     serial->write(messageBuffer, pos);
+    serial->flush();  // 送信完了を待つ
+    delayMicroseconds(100);
 #else
     if (serial.isInitialized()){
         serial.writeBytes(messageBuffer, pos);
@@ -314,7 +318,7 @@ void ofxSerialManager::writeEscaped(const unsigned char* data, int length) {
 
 // --------------------------------------
 // payload受信時のエスケープ解除
-// 「\?」 があれば ? をそのままバイナリとして取り出す。
+// "?" があれば ? をそのままバイナリとして取り出す。
 // ただし '\n' は本物の改行に戻す。
 // "\x01" のようなものはバイトコードとみなして 0x01 などにする
 // --------------------------------------
