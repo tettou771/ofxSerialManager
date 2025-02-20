@@ -39,6 +39,9 @@ public:
 
   // 更新処理(読み取り・コールバック呼び出し)
   void update();
+    
+  // 1byte処理するメソッド（updateで使う）
+  void processIncomingByte(char c);
 
   // 送信(<cmd>:<payload> の形にエスケープして送る)
   void send(const char* cmd, const unsigned char* data, int length);
@@ -46,7 +49,15 @@ public:
   void send(const char* cmd, const char* str);
     
   bool isInitialized();
+  void close();
 
+    // シリアルの参照などを返す
+#ifdef ARDUINO
+  Stream* getSerial() { return serial; }
+#else
+  ofSerial& getSerial() { return serial; }
+#endif
+    
 private:
   // リスナーを保持する構造体
   struct CommandEntry {

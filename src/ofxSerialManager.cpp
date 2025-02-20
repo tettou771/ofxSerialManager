@@ -54,50 +54,54 @@ bool ofxSerialManager::setupOF(const std::string& portName, int baud) {
 // update
 // --------------------------------------
 void ofxSerialManager::update() {
-  // 受信できるだけ読み取る
-  while (true) {
-    int b = readByte();  // -1ならデータなし
-    if (b < 0) {
-      break;  // もう無い
+#ifdef ARDUINO
+    int availableBytes = serial->available();
+#else
+    int availableBytes = serial.isInitialized() ? serial.available() : 0;
+#endif
+    if (availableBytes <= 0) return;
+
+    // rxBuffer の残り領域に収まる量だけ読む
+    int toRead = availableBytes;
+    if (rxLen + toRead >= BUFFER_SIZE) {
+        toRead = BUFFER_SIZE - rxLen - 1; // ヌル終端のために1バイト余裕
     }
+    if (toRead <= 0) return;
 
-    unsigned char c = (unsigned char)b;
+    char tempBuffer[BUFFER_SIZE];
+#ifdef ARDUINO
+    int n = serial->readBytes(tempBuffer, toRead);
+#else
+    int n = serial.readBytes(tempBuffer, toRead);
+#endif
+    for (int i = 0; i < n; i++){
+        processIncomingByte(tempBuffer[i]);
+    }
+}
 
-    // バイナリも含め受け取るけど、「改行がメッセージ区切り」。
-    // ただし '\' でエスケープされてる場合はペイロードの一部にする。
+void ofxSerialManager::processIncomingByte(char c) {
     if (escapeNext) {
-      // 前の文字が '\' だったので、これは何であれペイロード文字として扱う
-      if (rxLen < BUFFER_SIZE - 1) {
-        rxBuffer[rxLen++] = (char)c;
-        rxBuffer[rxLen] = '\0';
-      }
-      escapeNext = false;
-    } else {
-      if (c == '\\') {
-        // 次の文字をエスケープ扱いにする
-        escapeNext = true;
-      } else if (c == '\n') {
-        // 改行が来たので1行(1コマンド)確定
-        if (rxLen > 0) {
-          rxBuffer[rxLen] = '\0';
-          execCmd(rxBuffer);
-        }
-        resetBuffer();
-      } else {
-        // コマンド部分は非表示文字を無視してOK
-        // ただしペイロード中はバイナリでも入れたい可能性あるが、
-        // 簡単のため、まずはコマンド部分だけASCIIチェックしよう
-
-        // コロンが出るまでを「コマンド部」、それ以降を「ペイロード部」として
-        // ざっくりと格納して後でexecCmd()で処理する形にする
-
         if (rxLen < BUFFER_SIZE - 1) {
-          rxBuffer[rxLen++] = (char)c;
-          rxBuffer[rxLen] = '\0';
+            rxBuffer[rxLen++] = c;
+            rxBuffer[rxLen] = '\0';
         }
-      }
+        escapeNext = false;
+    } else {
+        if (c == '\\') {
+            escapeNext = true;
+        } else if (c == '\n') {
+            if (rxLen > 0) {
+                rxBuffer[rxLen] = '\0';
+                execCmd(rxBuffer);
+            }
+            resetBuffer();
+        } else {
+            if (rxLen < BUFFER_SIZE - 1) {
+                rxBuffer[rxLen++] = c;
+                rxBuffer[rxLen] = '\0';
+            }
+        }
     }
-  }
 }
 
 // --------------------------------------
@@ -224,22 +228,41 @@ void ofxSerialManager::resetBuffer() {
 //  (2) data:バイナリ, length指定
 // --------------------------------------
 void ofxSerialManager::send(const char* cmd, const unsigned char* data, int length) {
-  // まず cmd
-  // コマンド部分は基本的に可視文字のみを想定。ここではノーチェックでそのまま送る
-  // <cmd>:<payload>\n の形
-  if (!cmd) return;
-
-  // cmd:
-  for (size_t i = 0; i < strlen(cmd); i++) {
-    writeByte((unsigned char)cmd[i]);
-  }
-  writeByte(':');
-
-  // payload (エスケープして送る)
-  writeEscaped(data, length);
-
-  // 改行(メッセージ区切り)
-  writeByte('\n');
+    int cmdLen = strlen(cmd);
+    // worst-case: すべてのバイトがエスケープ必要なら長さは倍になる
+    int maxMessageSize = cmdLen + 1 + length * 2 + 1;
+    unsigned char* messageBuffer = new unsigned char[maxMessageSize];
+    int pos = 0;
+    
+    // コマンド部分
+    for (int i = 0; i < cmdLen; i++){
+        messageBuffer[pos++] = (unsigned char)cmd[i];
+    }
+    messageBuffer[pos++] = ':';
+    
+    // ペイロード部分：エスケープ処理を含む
+    for (int i = 0; i < length; i++){
+        unsigned char c = data[i];
+        if (c == ':' || c == '\\' || c == '\n') {
+            messageBuffer[pos++] = '\\';
+            if (c == '\n') {
+                messageBuffer[pos++] = 'n';
+                continue;
+            }
+        }
+        messageBuffer[pos++] = c;
+    }
+    messageBuffer[pos++] = '\n';
+    
+#ifdef ARDUINO
+    serial->write(messageBuffer, pos);
+#else
+    if (serial.isInitialized()){
+        serial.writeBytes(messageBuffer, pos);
+    }
+#endif
+    
+    delete[] messageBuffer;
 }
 
 // 文字列版
@@ -259,6 +282,14 @@ bool ofxSerialManager::isInitialized() {
   return serial;
 #else
   return serial.isInitialized();
+#endif
+}
+
+void ofxSerialManager::close() {
+#ifdef ARDUINO
+  return;
+#else
+  return serial.close();
 #endif
 }
 
