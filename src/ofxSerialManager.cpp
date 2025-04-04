@@ -92,7 +92,7 @@ void ofxSerialManager::processIncomingByte(char c) {
         } else if (c == '\n') {
             if (rxLen > 0) {
                 rxBuffer[rxLen] = '\0';
-                execCmd(rxBuffer);
+                execCmd(rxBuffer, rxLen);
             }
             resetBuffer();
         } else {
@@ -151,11 +151,10 @@ void ofxSerialManager::writeByte(unsigned char c) {
 // --------------------------------------
 // コマンド実行
 // --------------------------------------
-void ofxSerialManager::execCmd(const char* cmdline) {
+void ofxSerialManager::execCmd(const char* cmdline, int length) {
   // cmdlineを "<cmd>:<payload>" に分割
-  // コマンド部はASCII可視文字以外を無視するとしたければトリミング
   char temp[BUFFER_SIZE];
-  strncpy(temp, cmdline, sizeof(temp));
+  memcpy(temp, cmdline, length); // 注: バイナリの可能性を考慮して、strncpyは使わない
   temp[sizeof(temp) - 1] = '\0';
 
   // ':' を探す
@@ -196,18 +195,18 @@ void ofxSerialManager::execCmd(const char* cmdline) {
     cmdPart[writePos] = '\0';
   }
 
-  int payloadLen = strlen(payloadPart);  // 受信行の残り分(エスケープ前)
+  int payloadLen = length - (payloadPart - temp);  // 受信行の残り分(エスケープ前)
   // (本当は、最初に readByte() で読んだトータル長を渡した方が正確)
 
   // unescapePayload() が返してきた最終バイナリ長を保持
-  int actualLen = unescapePayload(payloadPart, payloadLen);
+  //int actualLen = unescapePayload(payloadPart, payloadLen);
 
   // コールバックを呼ぶ
   for (int i = 0; i < listenerCount; i++) {
     if (strcmp(listeners[i].cmd, cmdPart) == 0) {
       // payloadPart に実際のバイナリが書き込まれている
       // actualLen がその長さ
-      listeners[i].callback(payloadPart, actualLen);
+      listeners[i].callback(payloadPart, payloadLen);
     }
   }
 

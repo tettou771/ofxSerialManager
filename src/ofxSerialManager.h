@@ -94,7 +94,7 @@ private:
   void writeByte(unsigned char c);
 
   // 内部処理: コマンド実行
-  void execCmd(const char* cmdline);
+  void execCmd(const char* cmdline, int length);
 
   // 内部処理: バッファをリセット
   void resetBuffer();
