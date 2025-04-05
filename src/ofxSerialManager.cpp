@@ -279,11 +279,6 @@ void ofxSerialManager::send(const char* cmd, const char* str) {
   send(cmd, (const unsigned char*)str, strlen(str));
 }
 
-// payloadなし
-void ofxSerialManager::send(const char* cmd) {
-    send(cmd, "");
-}
-
 // 初期化されているかどうか
 bool ofxSerialManager::isInitialized() {
 #ifdef ARDUINO
