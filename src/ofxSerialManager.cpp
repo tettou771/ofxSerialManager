@@ -199,14 +199,14 @@ void ofxSerialManager::execCmd(const char* cmdline, int length) {
   // (本当は、最初に readByte() で読んだトータル長を渡した方が正確)
 
   // unescapePayload() が返してきた最終バイナリ長を保持
-  //int actualLen = unescapePayload(payloadPart, payloadLen);
+  int actualLen = unescapePayload(payloadPart, payloadLen);
 
   // コールバックを呼ぶ
   for (int i = 0; i < listenerCount; i++) {
     if (strcmp(listeners[i].cmd, cmdPart) == 0) {
       // payloadPart に実際のバイナリが書き込まれている
       // actualLen がその長さ
-      listeners[i].callback(payloadPart, payloadLen);
+      listeners[i].callback(payloadPart, actualLen);
     }
   }
 
