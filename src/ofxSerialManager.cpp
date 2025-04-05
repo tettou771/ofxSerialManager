@@ -153,10 +153,9 @@ void ofxSerialManager::writeByte(unsigned char c) {
 // --------------------------------------
 void ofxSerialManager::execCmd(const char* cmdline, int length) {
   // cmdlineを "<cmd>:<payload>" に分割
-  char temp[BUFFER_SIZE];
+  char temp[BUFFER_SIZE] = {'\0'};
   memcpy(temp, cmdline, length); // 注: バイナリの可能性を考慮して、strncpyは使わない
-  temp[sizeof(temp) - 1] = '\0';
-
+  
   // ':' を探す
   char* sep = strchr(temp, ':');
   if (!sep) {
