@@ -138,8 +138,6 @@ void ofxSerialManager::writeByte(unsigned char c) {
 #ifdef ARDUINO
   if (serial) {
     serial->write(c);
-    serial->flush();  // 送信完了を待つ
-    delayMicroseconds(100);
   }
 #else
   if (serial.isInitialized()) {
@@ -256,8 +254,6 @@ void ofxSerialManager::send(const char* cmd, const unsigned char* data, int leng
     
 #ifdef ARDUINO
     serial->write(messageBuffer, pos);
-    serial->flush();  // 送信完了を待つ
-    delayMicroseconds(100);
 #else
     if (serial.isInitialized()){
         serial.writeBytes(messageBuffer, pos);
