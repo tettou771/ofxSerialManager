@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef OFXSERIALMANAGER_BUFFER_SIZE
+#define OFXSERIALMANAGER_BUFFER_SIZE 256
+#endif
+
 // --------------------------------------------------
 // 環境によって分岐
 // Arduino IDE/PlatformIO等: ARDUINO が定義されている前提
@@ -70,7 +74,7 @@ private:
   int listenerCount;
 
   // 受信用バッファ
-  static const int BUFFER_SIZE = 256;
+  static const int BUFFER_SIZE = OFXSERIALMANAGER_BUFFER_SIZE;
   char rxBuffer[BUFFER_SIZE];
   int rxLen;
 
