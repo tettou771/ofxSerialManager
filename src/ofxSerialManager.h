@@ -51,6 +51,8 @@ public:
   void send(const char* cmd, const unsigned char* data, int length);
   // 文字列だけ送りたい場合のシンプルオーバーロード
   void send(const char* cmd, const char* str);
+  // ペイロードなしの痩身メソッド
+  void send(const char* cmd);
     
   bool isInitialized();
   void close();
